@@ -117,7 +117,7 @@
 >            not (all (\x -> not ((runProgram ap pi_1 a_1 x) && (runProgram ap pi_2 x a_2))) (allAssignmentsFor ap) )
 > runProgram ap (Cap pi_1 pi_2) a_1 a_2           = (runProgram ap pi_1 a_1 a_2) && (runProgram ap pi_2 a_1 a_2)
 > runProgram ap (Cup pi_1 pi_2) a_1 a_2           = (runProgram ap pi_1 a_1 a_2) || (runProgram ap pi_2 a_1 a_2)
-> runProgram _ IdleProgram a_1 a_2                = ((sort $ nub a_1) == (sort $ nub a_2))
+> runProgram _ IdleProgram _ _                = False
 
 
 
@@ -142,11 +142,61 @@
 >        [(World, Valuation)]
 >        deriving (Eq,Show)
 
- kripkeToSuccint :: KripkeM -> SuccEpistM
- kripkeToSuccint (KMo relations valuations) = Mo ap beta programs
-                                              where ap = sort (ap_M ++ ap_W)
-                                                       where ap_M = nub $ concat [snd x | x <- valuations]
-                                                             ap_W = [-(fst x) | x <- valuations]
+> kripkeToSuccint :: KripkeM -> SuccEpistM
+> kripkeToSuccint (KMo relations valuations) = Mo ap beta programs
+>                                              where ap = sort (ap_M ++ ap_W)
+>                                                    beta = make_beta ap_M ap_W valuations
+>                                                    programs = [(agent, relationToProgram relation ap beta) | (agent, relation) <- relations]
+>                                                    ap_M = nub $ concat [snd x | x <- valuations]
+>                                                    ap_W = [-(fst x) | x <- valuations]
+ 
+
+> relationToProgram :: Relation -> [Proposition] -> Form -> Program
+> relationToProgram relation ap beta = Semicolon (relationToProgram1 relation ap) (Question beta)
+>
+> relationToProgram1 :: Relation -> [Proposition] -> Program
+> relationToProgram1 [] _ = IdleProgram
+> relationToProgram1 ((world, neighbors):rest) ap = Cup (relationToProgram2 world neighbors ap) (relationToProgram1 rest ap)
+>
+> relationToProgram2 :: World -> [World] -> [Proposition] -> Program
+> relationToProgram2 _ [] _ = IdleProgram
+> relationToProgram2 w_1 (w_2:rest) ap = Cup ( Semicolon (Semicolon (Question (P (-w_1)) ) (programSet ap)) (Question (P (-w_2))) ) (relationToProgram2 w_1 rest ap)
+
+> modelCheckKrpk :: KripkeM -> World -> Form -> Bool
+> modelCheckKrpk (KMo relations valuations) world (P k) = case (lookup world valuations) of
+>                                               Just valuation -> k `elem` valuation
+>                                               Nothing -> False
+> modelCheckKrpk model world (Neg f)          = not (modelCheckKrpk model world f)
+> modelCheckKrpk model world (Conj f g)       = (modelCheckKrpk model world f) && (modelCheckKrpk model world g)
+> modelCheckKrpk model world (Disj f g)       = (modelCheckKrpk model world f) || (modelCheckKrpk model world g)
+> modelCheckKrpk (KMo relations valuations) world (Knows agent f)  
+>                                         = case (lookup agent relations) of
+>                                              Just relation_a -> case (lookup world relation_a) of
+>                                                 Just neighbors -> all (\x -> modelCheckKrpk (KMo relations valuations) x (f) ) neighbors
+>                                                 Nothing -> True
+>                                              Nothing -> True
+
+
+
+
+
+ 			 [state]
+
+ 			 [(Agent, [(state, state, Prp)] )]
+
+> my_kmodel = KMo 
+>              [(1, [(1,[2,3])]),
+>                 (2, [(2,[4,5]), (3,[6])])]
+>              [(4, [1,2]), (5,[1]), (6,[1,2]), (1,[]), (2,[]), (3,[])]
+
+> phi = (Knows 2 (P 2))
+
+initM :: (Num state, Enum state) => 
+        [Agent] -> [Prp] -> EpistM state
+initM ags props = (Mo states ags val accs points) 
+ where 
+  states  = [0..(2^k-1)]
+   k       = length props
                                                     
 
 > modelCheckKrpk :: KripkeM -> World -> Form -> Bool
