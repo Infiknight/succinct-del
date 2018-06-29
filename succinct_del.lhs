@@ -5,6 +5,8 @@
 
  import E1S
 
+ test edit
+
 > type Proposition = Integer
 > data Form = P Proposition | Neg Form | Conj Form Form | Disj Form Form | Top | Bottom | Knows Agent Form deriving (Eq,Ord)
 > instance Show Form where
