@@ -114,6 +114,8 @@ varsIn (Neg f)    = varsIn f
 varsIn (Conj f g) = nub (varsIn f ++ varsIn g)
 \end{code}
 
+The model checking algorithm, for the mental model, can be used to check whether an epistemic formula holds for an agent in a particular interpretation. When it comes to interpreting the knowledge operator, it iterates over all the valid interpretations (valid as in pass the test of $\beta_M$) and check whether in all such accessible interpretations, $f$ holds.
+
 \begin{code}
 modelCheck :: SuccEpistM -> Assignment -> Form -> Bool
 modelCheck model world (P k)            = k `elem` world
@@ -235,6 +237,8 @@ programToRelation1 _ _ _ [] _ = []
 programToRelation1 program ap beta ((world,assignment):rest) worldsAndAssignments = (world, [vorld | (vorld, ass1) <- worldsAndAssignments, runProgram beta ap program assignment ass1]):(programToRelation1 program ap beta rest worldsAndAssignments)
 \end{code}
 
+
+
  
 
 \begin{code}
@@ -249,6 +253,9 @@ relationToProgram2 :: World -> [World] -> [Proposition] -> Program
 relationToProgram2 _ [] _ = IdleProgram
 relationToProgram2 w_1 (w_2:rest) ap = Cup ( Semicolon (Semicolon (Question (P (-w_1)) ) UniversalProgram) (Question (P (-w_2))) ) (relationToProgram2 w_1 rest ap)
 \end{code}
+
+
+The model checking algorithm, for the kripke model, can be used to check whether an epistemic formula holds for an agent in a particular world. 
 
 \begin{code}
 modelCheckKrpk :: KripkeM -> World -> Form -> Bool
@@ -265,6 +272,12 @@ modelCheckKrpk (KMo relations valuations) world (Knows agent f)
                                                 Nothing -> True
                                              Nothing -> True
 \end{code}
+
+
+
+Below is an example Kripke model in our notation. The first list contains the relations in the form [(agent, [(current world,[worlds accessible from current world for the agent])])].
+The second list contains the valuations for each world of the form: [(current world, [propositions true in the current world])].
+
 
 \begin{code}
 my_kmodel = KMo 
