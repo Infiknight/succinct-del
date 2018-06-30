@@ -32,6 +32,18 @@
 
 \begin{landscape}
 
+\pagenumbering{gobble}
+
+%\title{Judgement Aggregation}%replace with the appropriate homework number
+\title{Functional Programming\\
+        Epistemic Model Checking}
+\author{
+May Lee\\
+Dimitrios Koutsoulis} %if necessary, replace with your course title
+ 
+\maketitle
+%Below is an example of the problem environment
+
 \ignore{
 \begin{code}
 
@@ -41,8 +53,21 @@ import Data.List
 \end{code}
 }
 
+\section{Introduction}
+	We implemented the epistemic model checking for Kripke models and succint Kripke models (mental models). 
+	We also implemented translating functions between the two. 
+	Note that the translation from Kripke to mental models introduces nominal propositions whose sole purpose is to identify a world each. 
+	Given that we represent agents, worlds and propositions of Kripke models as positive integers, we let the nominal propositions be the negations of the worlds they represent. 
+	As such translating back and forth from a  Kripke model nets us one whose universe of propositions is a strict superset of the original. 
+	Still if we restrict it to the original universe, it is isomorphic to the original Kripke model. 
 
-Show instance for propositional formulas (includes the knowledge operator)
+
+\section{Code}
+
+
+\subsection{Propositional Logic}
+
+Show instance for propositional formulas (includes the knowledge operator).
 
 \begin{code}
 type Proposition = Integer
@@ -134,22 +159,6 @@ varsIn (Conj f g) = nub (varsIn f ++ varsIn g)
 }
 
 
-\begin{code}
-modelCheck :: SuccEpistM -> Assignment -> Form -> Bool
-modelCheck model world (P k)            = k `elem` world
-modelCheck model world (Neg f)          = not (modelCheck model world f)
-modelCheck model world (Conj f g)       = (modelCheck model world f) && (modelCheck model world g)
-modelCheck model world (Disj f g)       = (modelCheck model world f) || (modelCheck model world g)
-modelCheck (Mo ap beta programs) world (Knows agent f)  
-                                        = case (lookup agent programs) of
-                                             Just program_a -> all (\x -> (not (runProgram beta ap program_a world  x)) 
-                                                      || (modelCheck (Mo ap beta programs) x f) ) [ assignment | assignment <- (allAssignmentsFor ap), satisfies assignment beta]
-                                             Nothing -> False
-\end{code}
-
-
----
-
 \small
 
 \ignore{
@@ -162,14 +171,14 @@ allAssignmentsFor (p:ps) =
 \end{code}
 }
 
-ignore{
+\ignore{
 \begin{code}
 isValid :: Form -> Bool
 isValid f =
   and [ v `satisfies` f  | v <- allAssignmentsFor (varsIn f) ]
 \end{code}
 }
-
+\subsection{Programs}
 Definition of the program. Note that the Universal Program can reach any world from any world while the
 
 \begin{code}
@@ -209,6 +218,8 @@ programSet (current_prop:rest) =
    Semicolon (Cup (AssignTo current_prop Top) (AssignTo current_prop Bottom)) (programSet rest)
 \end{code}
 
+\subsection{Mental Model}
+Here follows the definition of the mental model and its model checking algorithm.
 \begin{code}
 data SuccEpistM = Mo
        [Proposition]
@@ -218,17 +229,49 @@ data SuccEpistM = Mo
 \end{code}
 
 \begin{code}
+modelCheck :: SuccEpistM -> Assignment -> Form -> Bool
+modelCheck model world (P k)            = k `elem` world
+modelCheck model world (Neg f)          = not (modelCheck model world f)
+modelCheck model world (Conj f g)       = (modelCheck model world f) && (modelCheck model world g)
+modelCheck model world (Disj f g)       = (modelCheck model world f) || (modelCheck model world g)
+modelCheck (Mo ap beta programs) world (Knows agent f)  
+                                        = case (lookup agent programs) of
+                                             Just program_a -> all (\x -> (not (runProgram beta ap program_a world  x)) 
+                                                      || (modelCheck (Mo ap beta programs) x f) ) [ assignment | assignment <- (allAssignmentsFor ap), satisfies assignment beta]
+                                             Nothing -> False
+\end{code}
+
+\subsection{Kripke Model}
+
+Definitions for the Kripke alongside its model checking algorithm.
+
+\begin{code}
 type World = Integer
 type Valuation = [Proposition]
 type Relation = [(World, [World])]
 \end{code}
-
 
 \begin{code}
 data KripkeM = KMo 
        [(Agent, Relation)]
        [(World, Valuation)]
        deriving (Eq,Show)
+\end{code}
+
+\begin{code}
+modelCheckKrpk :: KripkeM -> World -> Form -> Bool
+modelCheckKrpk (KMo relations valuations) world (P k) = case (lookup world valuations) of
+                                              Just valuation -> k `elem` valuation
+                                              Nothing -> False
+modelCheckKrpk model world (Neg f)          = not (modelCheckKrpk model world f)
+modelCheckKrpk model world (Conj f g)       = (modelCheckKrpk model world f) && (modelCheckKrpk model world g)
+modelCheckKrpk model world (Disj f g)       = (modelCheckKrpk model world f) || (modelCheckKrpk model world g)
+modelCheckKrpk (KMo relations valuations) world (Knows agent f)  
+                                        = case (lookup agent relations) of
+                                             Just relation_a -> case (lookup world relation_a) of
+                                                Just neighbors -> all (\x -> modelCheckKrpk (KMo relations valuations) x (f) ) neighbors
+                                                Nothing -> True
+                                             Nothing -> True
 \end{code}
 
 \begin{code}
@@ -240,6 +283,8 @@ kripkeToSuccint (KMo relations valuations) = Mo ap beta programs
                                                    ap_M = nub $ concat [snd x | x <- valuations]
                                                    ap_W = [-(fst x) | x <- valuations]
 \end{code}
+
+\subsection{Model Translation Algorithms}
 
 \begin{code}
 succintToKripke :: SuccEpistM -> KripkeM
@@ -275,21 +320,9 @@ relationToProgram2 _ [] _ = IdleProgram
 relationToProgram2 w_1 (w_2:rest) ap = Cup ( Semicolon (Semicolon (Question (P (-w_1)) ) UniversalProgram) (Question (P (-w_2))) ) (relationToProgram2 w_1 rest ap)
 \end{code}
 
-\begin{code}
-modelCheckKrpk :: KripkeM -> World -> Form -> Bool
-modelCheckKrpk (KMo relations valuations) world (P k) = case (lookup world valuations) of
-                                              Just valuation -> k `elem` valuation
-                                              Nothing -> False
-modelCheckKrpk model world (Neg f)          = not (modelCheckKrpk model world f)
-modelCheckKrpk model world (Conj f g)       = (modelCheckKrpk model world f) && (modelCheckKrpk model world g)
-modelCheckKrpk model world (Disj f g)       = (modelCheckKrpk model world f) || (modelCheckKrpk model world g)
-modelCheckKrpk (KMo relations valuations) world (Knows agent f)  
-                                        = case (lookup agent relations) of
-                                             Just relation_a -> case (lookup world relation_a) of
-                                                Just neighbors -> all (\x -> modelCheckKrpk (KMo relations valuations) x (f) ) neighbors
-                                                Nothing -> True
-                                             Nothing -> True
-\end{code}
+
+\pagebreak
+\section{Model Checking Examples}
 
 \begin{code}
 my_kmodel = KMo 
@@ -319,8 +352,8 @@ phi3 = Conj (Knows 1 (P 1)) (Knows 2 (P 2))
 \end{code}
 
 After model checking phi 1,2,3 on my$\_$kmodel2 on all its worlds, on both the original Kripke model and its translation to a mental model, we have that both the kripke one and the mental one agree as expected (and the result is consistent with the usual semantics). The results are as follows:
-
-\includegraphics[width=30cm,height=40cm]{a.png}
+~\\
+\center{\includegraphics[width=15cm,height=20cm]{a.png}}
 
 
 \end{landscape}
