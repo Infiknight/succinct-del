@@ -71,8 +71,8 @@
 > modelCheck model world (Disj f g)       = (modelCheck model world f) || (modelCheck model world g)
 > modelCheck (Mo ap beta programs) world (Knows agent f)  
 >                                         = case (lookup agent programs) of
->                                              Just program_a -> all (\x -> (not (runProgram ap program_a world  x)) 
->                                                       || (modelCheck (Mo ap beta programs) x f) ) (allAssignmentsFor ap)
+>                                              Just program_a -> all (\x -> (not (runProgram beta ap program_a world  x)) 
+>                                                       || (modelCheck (Mo ap beta programs) x f) ) [ assignment | assignment <- (allAssignmentsFor ap), satisfies assignment beta]
 >                                              Nothing -> False
 
 
@@ -105,19 +105,21 @@
 >               | Cap Program Program
 >               | Cup Program Program
 >               | IdleProgram
+>               | UniversalProgram
 >               deriving (Eq,Show)
 
 > remove element list = filter (\e -> e/=element) list
 
-> runProgram :: [Proposition] -> Program -> Assignment -> Assignment -> Bool
-> runProgram _ (AssignTo prop formula) a_1 a_2        | satisfies a_1 formula = (sort $ nub $ prop:a_1) == (sort $ nub a_2)
->                                                     | otherwise             = (sort $ nub (remove prop a_1)) == (sort $ nub a_2)
-> runProgram _ (Question formula) a_1 a_2         = ((sort $ nub a_1) == (sort $ nub a_2)) && satisfies a_1 formula
-> runProgram ap (Semicolon pi_1 pi_2) a_1 a_2     = 
->            not (all (\x -> not ((runProgram ap pi_1 a_1 x) && (runProgram ap pi_2 x a_2))) (allAssignmentsFor ap) )
-> runProgram ap (Cap pi_1 pi_2) a_1 a_2           = (runProgram ap pi_1 a_1 a_2) && (runProgram ap pi_2 a_1 a_2)
-> runProgram ap (Cup pi_1 pi_2) a_1 a_2           = (runProgram ap pi_1 a_1 a_2) || (runProgram ap pi_2 a_1 a_2)
-> runProgram _ IdleProgram _ _                = False
+> runProgram :: Form -> [Proposition] -> Program -> Assignment -> Assignment -> Bool
+> runProgram beta _ (AssignTo prop formula) a_1 a_2        | satisfies a_1 formula = (sort $ nub $ prop:a_1) == (sort $ nub a_2)
+>                                                          | otherwise             = (sort $ nub (remove prop a_1)) == (sort $ nub a_2)
+> runProgram beta _ (Question formula) a_1 a_2         = ((sort $ nub a_1) == (sort $ nub a_2)) && satisfies a_1 formula
+> runProgram beta ap (Semicolon pi_1 pi_2) a_1 a_2     = 
+>            not (all (\x -> not ((runProgram beta ap pi_1 a_1 x) && (runProgram beta ap pi_2 x a_2))) [ assignment | assignment <- (allAssignmentsFor ap), satisfies assignment beta] )
+> runProgram beta ap (Cap pi_1 pi_2) a_1 a_2           = (runProgram beta ap pi_1 a_1 a_2) && (runProgram beta ap pi_2 a_1 a_2)
+> runProgram beta ap (Cup pi_1 pi_2) a_1 a_2           = (runProgram beta ap pi_1 a_1 a_2) || (runProgram beta ap pi_2 a_1 a_2)
+> runProgram beta _ IdleProgram _ _                    = False
+> runProgram beta _ UniversalProgram _ _               = True
 
 
 
@@ -152,7 +154,7 @@
  
 
 > relationToProgram :: Relation -> [Proposition] -> Form -> Program
-> relationToProgram relation ap beta = Semicolon (relationToProgram1 relation ap) (Question beta)
+> relationToProgram relation ap beta = relationToProgram1 relation ap
 >
 > relationToProgram1 :: Relation -> [Proposition] -> Program
 > relationToProgram1 [] _ = IdleProgram
@@ -160,7 +162,7 @@
 >
 > relationToProgram2 :: World -> [World] -> [Proposition] -> Program
 > relationToProgram2 _ [] _ = IdleProgram
-> relationToProgram2 w_1 (w_2:rest) ap = Cup ( Semicolon (Semicolon (Question (P (-w_1)) ) (programSet ap)) (Question (P (-w_2))) ) (relationToProgram2 w_1 rest ap)
+> relationToProgram2 w_1 (w_2:rest) ap = Cup ( Semicolon (Semicolon (Question (P (-w_1)) ) UniversalProgram) (Question (P (-w_2))) ) (relationToProgram2 w_1 rest ap)
 
 > modelCheckKrpk :: KripkeM -> World -> Form -> Bool
 > modelCheckKrpk (KMo relations valuations) world (P k) = case (lookup world valuations) of
@@ -181,6 +183,22 @@
 
 
  			 [state]
+
+ 			 [(Agent, [(state, state, Prp)] )]
+
+> my_kmodel = KMo 
+>              [(1, [(1,[2,3])]),
+>                 (2, [(2,[4,5]), (3,[6])])]
+>              [(4, [1,2]), (5,[1]), (6,[1,2]), (1,[]), (2,[]), (3,[])]
+
+> phi = Knows 1 (Knows 2 (P 2))
+
+initM :: (Num state, Enum state) => 
+        [Agent] -> [Prp] -> EpistM state
+initM ags props = (Mo states ags val accs points) 
+ where 
+  states  = [0..(2^k-1)]
+   k       = length props
 
  			 [(Agent, [(state, state, Prp)] )]
 
