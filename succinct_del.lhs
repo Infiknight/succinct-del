@@ -5,7 +5,6 @@
 
  import E1S
 
- test edit
 
 > type Proposition = Integer
 > data Form = P Proposition | Neg Form | Conj Form Form | Disj Form Form | Top | Bottom | Knows Agent Form deriving (Eq,Ord)
@@ -90,15 +89,6 @@
 > isValid f =
 >   and [ v `satisfies` f  | v <- allAssignmentsFor (varsIn f) ]
 
-
-
- data Prp = P Int | Q Int | R Int | S Int deriving (Eq,Ord)
- instance Show Prp where 
-  show (P 0) = "p"; show (P i) = "p" ++ show i 
-  show (Q 0) = "q"; show (Q i) = "q" ++ show i 
-  show (R 0) = "r"; show (R i) = "r" ++ show i
-  show (S 0) = "s"; show (S i) = "s" ++ show i
-
 > data Program = AssignTo Proposition Form
 >               | Question Form
 >               | Semicolon Program Program
@@ -151,6 +141,23 @@
 >                                                    programs = [(agent, relationToProgram relation ap beta) | (agent, relation) <- relations]
 >                                                    ap_M = nub $ concat [snd x | x <- valuations]
 >                                                    ap_W = [-(fst x) | x <- valuations]
+
+> succintToKripke :: SuccEpistM -> KripkeM
+> succintToKripke (Mo ap beta programs) = KMo relations worldsAndAssignments
+>                                         where relations = [(agent, programToRelation program ap beta worldsAndAssignments) | (agent, program) <- programs]
+>                                               worldsAndAssignments = zip [1..(toInteger $ length assignments)] assignments
+>                                               assignments = [ assignment | assignment <- (allAssignmentsFor ap), satisfies assignment beta]
+
+ 
+ 
+
+> programToRelation :: Program -> [Proposition] -> Form -> [(World, Assignment)] -> Relation
+> programToRelation program ap beta worldsAndAssignments = programToRelation1 program ap beta worldsAndAssignments worldsAndAssignments
+>
+> programToRelation1 :: Program -> [Proposition] -> Form -> [(World, Assignment)] -> [(World, Assignment)] -> Relation
+> programToRelation1 _ _ _ [] _ = []
+> programToRelation1 program ap beta ((world,assignment):rest) worldsAndAssignments = (world, [vorld | (vorld, ass1) <- worldsAndAssignments, runProgram beta ap program assignment ass1]):(programToRelation1 program ap beta rest worldsAndAssignments)
+
  
 
 > relationToProgram :: Relation -> [Proposition] -> Form -> Program
@@ -178,14 +185,6 @@
 >                                                 Nothing -> True
 >                                              Nothing -> True
 
-
-
-
-
- 			 [state]
-
- 			 [(Agent, [(state, state, Prp)] )]
-
 > my_kmodel = KMo 
 >              [(1, [(1,[2,3])]),
 >                 (2, [(2,[4,5]), (3,[6])])]
@@ -193,62 +192,3 @@
 
 > phi = Knows 1 (Knows 2 (P 2))
 
-initM :: (Num state, Enum state) => 
-        [Agent] -> [Prp] -> EpistM state
-initM ags props = (Mo states ags val accs points) 
- where 
-  states  = [0..(2^k-1)]
-   k       = length props
-
- 			 [(Agent, [(state, state, Prp)] )]
-
-> my_kmodel = KMo 
->              [(1, [(1,[2,3])]),
->                 (2, [(2,[4,5]), (3,[6])])]
->              [(4, [1,2]), (5,[1]), (6,[1,2]), (1,[]), (2,[]), (3,[])]
-
-> phi = (Knows 2 (P 2))
-
-initM :: (Num state, Enum state) => 
-        [Agent] -> [Prp] -> EpistM state
-initM ags props = (Mo states ags val accs points) 
- where 
-  states  = [0..(2^k-1)]
-   k       = length props
-                                                    
-
-> modelCheckKrpk :: KripkeM -> World -> Form -> Bool
-> modelCheckKrpk (KMo relations valuations) world (P k) = case (lookup world valuations) of
->                                               Just valuation -> k `elem` valuation
->                                               Nothing -> False
-> modelCheckKrpk model world (Neg f)          = not (modelCheckKrpk model world f)
-> modelCheckKrpk model world (Conj f g)       = (modelCheckKrpk model world f) && (modelCheckKrpk model world g)
-> modelCheckKrpk model world (Disj f g)       = (modelCheckKrpk model world f) || (modelCheckKrpk model world g)
-> modelCheckKrpk (KMo relations valuations) world (Knows agent f)  
->                                         = case (lookup agent relations) of
->                                              Just relation_a -> case (lookup world relation_a) of
->                                                 Just neighbors -> all (\x -> modelCheckKrpk (KMo relations valuations) x (f) ) neighbors
->                                                 Nothing -> True
->                                              Nothing -> True
-
-
-
-
-
- 			 [state]
-
- 			 [(Agent, [(state, state, Prp)] )]
-
-> my_kmodel = KMo 
->              [(1, [(1,[2,3])]),
->                 (2, [(2,[4,5]), (3,[6])])]
->              [(4, [1,2]), (5,[1]), (6,[1,2])]
-
-> phi = Knows 1 (Knows 2 (P 1))
-
-initM :: (Num state, Enum state) => 
-        [Agent] -> [Prp] -> EpistM state
-initM ags props = (Mo states ags val accs points) 
- where 
-  states  = [0..(2^k-1)]
-   k       = length props
