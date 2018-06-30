@@ -34,12 +34,10 @@
 
 \ignore{
 \begin{code}
-module Test where
+
 
 import Data.List
-import GHC.Generics (Generic)
-import Test.QuickCheck
-import Generic.Random
+
 \end{code}
 }
 
@@ -251,8 +249,6 @@ succintToKripke (Mo ap beta programs) = KMo relations worldsAndAssignments
                                               assignments = [ assignment | assignment <- (allAssignmentsFor ap), satisfies assignment beta]
 \end{code}
 
- 
- 
 
 \begin{code}
 programToRelation :: Program -> [Proposition] -> Form -> [(World, Assignment)] -> Relation
@@ -306,33 +302,22 @@ my_kmodel = KMo
 phi = Knows 1 (Knows 2 (P 2))
 \end{code}
 
-\begin{code}
-ags :: [Agent]
-ags = [1..5]
-
-wrlds :: [World]
-wrlds = [1..5]
-
-prps :: [Proposition]
-prps = [1..3]
-\end{code}
+Below is the the encoding of the muddy children example without updates. All agents know that at least one of them is muddy, and each agent only knows the status of the other two.
 
 \begin{code}
-instance Arbitrary Form where
-  arbitrary = sized randomForm where
-    randomForm :: Int -> Gen Form
-    randomForm 0 = P <$> elements prps
-    randomForm n = oneof
-      [ P <$> elements prps
-      , Neg <$> randomForm (n `div` 2)
-      , Conj <$> randomForm (n `div` 2)
-             <*> randomForm (n `div` 2) ]
+my_kmodel2 = KMo 
+             [(1, [(1,[2]), (2,[1]), (3,[4]), (4,[5])]),
+              (2, [(1,[3]), (3,[1]), (5,[6]), (6,[5])]),
+             (3, [(1,[6]), (6,[1]), (2,[7]), (7,[2])])]
+             [(1, [1,2, 3]), (2,[2,3]), (3,[1,3]), (4,[3]), (5,[1]), (6,[1,2]), (7,[2])]
+
+phi2= Knows 1 (Knows 3 (Conj (P 1) (P 2)))
+
+phi3 = Conj (Knows 1 (P 1)) (Knows 2 (P 2))
+
+
 \end{code}
 
-
-instance Arbitrary KripkeM where 
-  arbitrary = sized randomModel where
-    randomModel :: Int -> Gen KripkeM
 
 \end{landscape}
 
