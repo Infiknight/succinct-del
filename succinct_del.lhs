@@ -4,6 +4,10 @@
 \usepackage[a3paper,bindingoffset=0.2in,%
             left=1in,right=1in,top=1in,bottom=1in,%
             footskip=.25in]{geometry}
+\usepackage{pdflscape}
+
+
+
 
 \usepackage{listings}
 \lstloadlanguages{Haskell}
@@ -26,7 +30,7 @@
     }
 \begin{document}
 
-
+\begin{landscape}
 
 \ignore{
 \begin{code}
@@ -40,7 +44,7 @@ import Generic.Random
 }
 
 
-
+Show instance for propositional formulas (includes the knowledge operator)
 
 \begin{code}
 type Proposition = Integer
@@ -59,11 +63,14 @@ instance Show Form where
     showString ("K" ++ (show agent) ++ " " ) . showsPrec 3 formula
 \end{code}
 
-
+\ignore{
 \begin{code}
 type Assignment = [Integer]
 type Agent = Integer
 \end{code}
+}
+
+The definition of the propositional logic satisfaction function adapted from the slides.
 
 \begin{code}
 satisfies :: Assignment -> Form -> Bool
@@ -75,6 +82,8 @@ satisfies _ Top        = True
 satisfies _ Bottom     = False
 \end{code}
 
+Function "make\_beta" that given $AP_M, AP_W$ and the valuations of all worlds, computes $\beta_M$ which we use to discard valuations that do not correspond to any possible world.
+
 \begin{code}
 make_beta :: [Proposition] -> [Proposition] -> [(World, Valuation)] -> Form
 make_beta ap_M ap_W valuations = make_beta2 ap_M ap_W ap_W valuations
@@ -83,6 +92,14 @@ make_beta2 :: [Proposition] -> [Proposition] -> [Proposition] -> [(World, Valuat
 make_beta2 _ [] ap_W _ = uExists ap_W
 make_beta2 ap_M (prop_w:restProps) ap_W (val:valuations) = Conj (Disj (Neg (P prop_w)) (desc ap_M (snd val))) (make_beta2 ap_M restProps ap_W valuations)
 \end{code}
+
+\begin{itemize}
+  \item uExists constructs the formula that corresponds to the exclusive existential $!\exists$. ap is the list of all propositions.
+  \item possibleWorld is the conjunction of implications from nominal propositions to the descriptions of the world that they denote. So that if some $p_w$ is true for an interpretation $I$, then if $I$ is to satisfy the conjunct, it must also satisfy $V(w)$
+
+\end{itemize}
+
+
 
 \begin{code}
 uExists :: [Proposition] -> Form
@@ -97,6 +114,8 @@ possibleWorld active_prop [] = P active_prop
 possibleWorld active_prop (inactive_prop:rest) = Conj (Neg (P inactive_prop)) (possibleWorld active_prop rest)
 \end{code}
 
+The description of a valuation $V$ is the conjunction of the propositions true in $V$ along with the negations of those not true in $V$.
+
 \begin{code}
 desc :: [Proposition] -> [Proposition] -> Form
 desc ap props = desc2 ((nub ap) \\ props) props
@@ -107,14 +126,15 @@ desc2 (out_prop:out_props) []      = Conj (Neg (P out_prop)) (desc2 out_props []
 desc2 [] []                        = Top
 \end{code}
 
+\ignore{
 \begin{code}
 varsIn :: Form -> [Integer]
 varsIn (P k)      = [k]
 varsIn (Neg f)    = varsIn f
 varsIn (Conj f g) = nub (varsIn f ++ varsIn g)
 \end{code}
+}
 
-The model checking algorithm, for the mental model, can be used to check whether an epistemic formula holds for an agent in a particular interpretation. When it comes to interpreting the knowledge operator, it iterates over all the valid interpretations (valid as in pass the test of $\beta_M$) and check whether in all such accessible interpretations, $f$ holds.
 
 \begin{code}
 modelCheck :: SuccEpistM -> Assignment -> Form -> Bool
@@ -134,6 +154,7 @@ modelCheck (Mo ap beta programs) world (Knows agent f)
 
 \small
 
+\ignore{
 \begin{code}
 allAssignmentsFor :: [Integer] -> [Assignment]
 allAssignmentsFor []     = [ [] ]
@@ -141,12 +162,17 @@ allAssignmentsFor (p:ps) =
   [ p:rest | rest <- allAssignmentsFor ps ]
   ++ allAssignmentsFor ps
 \end{code}
+}
 
+ignore{
 \begin{code}
 isValid :: Form -> Bool
 isValid f =
   and [ v `satisfies` f  | v <- allAssignmentsFor (varsIn f) ]
 \end{code}
+}
+
+Definition of the program. Note that the Universal Program can reach any world from any world while the
 
 \begin{code}
 data Program = AssignTo Proposition Form
@@ -234,10 +260,9 @@ programToRelation program ap beta worldsAndAssignments = programToRelation1 prog
 
 programToRelation1 :: Program -> [Proposition] -> Form -> [(World, Assignment)] -> [(World, Assignment)] -> Relation
 programToRelation1 _ _ _ [] _ = []
-programToRelation1 program ap beta ((world,assignment):rest) worldsAndAssignments = (world, [vorld | (vorld, ass1) <- worldsAndAssignments, runProgram beta ap program assignment ass1]):(programToRelation1 program ap beta rest worldsAndAssignments)
+programToRelation1 program ap beta ((world,assignment):rest) worldsAndAssignments = 
+        (world, [vorld | (vorld, ass1) <- worldsAndAssignments, runProgram beta ap program assignment ass1]):(programToRelation1 program ap beta rest worldsAndAssignments)
 \end{code}
-
-
 
  
 
@@ -254,9 +279,6 @@ relationToProgram2 _ [] _ = IdleProgram
 relationToProgram2 w_1 (w_2:rest) ap = Cup ( Semicolon (Semicolon (Question (P (-w_1)) ) UniversalProgram) (Question (P (-w_2))) ) (relationToProgram2 w_1 rest ap)
 \end{code}
 
-
-The model checking algorithm, for the kripke model, can be used to check whether an epistemic formula holds for an agent in a particular world. 
-
 \begin{code}
 modelCheckKrpk :: KripkeM -> World -> Form -> Bool
 modelCheckKrpk (KMo relations valuations) world (P k) = case (lookup world valuations) of
@@ -272,12 +294,6 @@ modelCheckKrpk (KMo relations valuations) world (Knows agent f)
                                                 Nothing -> True
                                              Nothing -> True
 \end{code}
-
-
-
-Below is an example Kripke model in our notation. The first list contains the relations in the form [(agent, [(current world,[worlds accessible from current world for the agent])])].
-The second list contains the valuations for each world of the form: [(current world, [propositions true in the current world])].
-
 
 \begin{code}
 my_kmodel = KMo 
@@ -318,6 +334,6 @@ instance Arbitrary KripkeM where
   arbitrary = sized randomModel where
     randomModel :: Int -> Gen KripkeM
 
-
+\end{landscape}
 
 \end{document}
