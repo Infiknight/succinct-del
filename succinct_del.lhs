@@ -6,8 +6,8 @@
             footskip=.25in]{geometry}
 \usepackage{pdflscape}
 
-
-
+\usepackage{graphicx}
+\usepackage{tikz}
 
 \usepackage{listings}
 \lstloadlanguages{Haskell}
@@ -317,6 +317,10 @@ phi3 = Conj (Knows 1 (P 1)) (Knows 2 (P 2))
 
 
 \end{code}
+
+After model checking phi 1,2,3 on my$\_$kmodel2 on all its worlds, on both the original Kripke model and its translation to a mental model, we have that both the kripke one and the mental one agree as expected (and the result is consistent with the usual semantics). The results are as follows:
+
+\includegraphics[width=30cm,height=40cm]{a.png}
 
 
 \end{landscape}
